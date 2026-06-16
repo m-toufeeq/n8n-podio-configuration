@@ -1,0 +1,257 @@
+{
+  "name": "outbound post call analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outbound-postcall",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1104, 256],
+      "id": "fbed8707-e7c6-475f-a356-66430406c738",
+      "name": "Webhook",
+      "webhookId": "fdd2f8cd-cf99-42b7-be7d-a97b19946335"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e28c0a44-4196-47e3-bf7a-56633064e22d",
+              "leftValue": "={{$json.body.event}}",
+              "rightValue": "call_analyzed",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-880, 256],
+      "id": "682b44a1-1a54-4763-a39b-d72818ad93ad",
+      "name": "If Call Analyzed"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Access the body from the previous node\nconst body = $input.item.json.body || {};\nconst callData = body.call || {};\nconst analysis = callData.call_analysis || {};\nconst extracted = analysis.custom_analysis_data || {};\nconst toolCalls = callData.tool_calls || [];\n\n// --- NEW: Extract the Podio Item ID we sent earlier ---\nconst dynamicVars = callData.retell_llm_dynamic_variables || {};\n\n// Logic to determine Call Transfer Status\nconst transferCall = toolCalls.find(tc => tc.type === 'transfer_call');\nlet transferStatus = \"Not Attempted\";\nif (transferCall) {\n  transferStatus = transferCall.success ? \"Success\" : \"Failed\";\n}\n\nreturn {\n  // --- NEW: Return the ID so the next node can use it ---\n  podio_item_id: dynamicVars.podio_item_id,\n\n  // Call Metadata\n  call_status: callData.call_status,\n  \n  // Contact Details\n  caller_name: extracted.caller_name || 'Unknown Caller',\n  caller_number: extracted.caller_phone || 'Unknown Number',\n  \n  // Lead Qualification Data\n  property_address: extracted.property_address || 'Not provided',\n  asking_price: extracted.asking_price || 'Not provided',\n  condition: extracted.property_condition || 'Not provided',\n  urgency: extracted.timeline_urgency || 'Not provided',\n  motivation: extracted.lead_motivation || 'Not provided',\n  \n  // Calculated Fields for Podio\n  selling_yn: extracted.is_selling ? 'Y' : 'N',\n  transfer_status: transferStatus,\n  \n  // Analysis & Recordings\n  is_hot_lead: extracted.is_hot_lead || false,\n  sentiment: analysis.user_sentiment || 'Neutral',\n  summary: analysis.call_summary || 'No summary provided.',\n  recording_url: callData.recording_url\n};"
+      },
+      "id": "d65bb5cc-68db-46c7-b151-73671f45d5c1",
+      "name": "Parse Call Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-656, 256]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.podio.com/item/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    \"fields\": {\n      \n      \"ai-notes\": \"• Selling? \" + $('Parse Call Data1').item.json.selling_yn + \"\\n• Reason for selling: \" + $('Parse Call Data1').item.json.motivation + \"\\n• Call transfer: \" + $('Parse Call Data1').item.json.transfer_status + \"\\n• Call Recording: \" + $('Parse Call Data1').item.json.recording_url + \"\\n\\nFull Summary: \" + $('Parse Call Data1').item.json.summary\n    }\n  }\n}}",
+        "options": {}
+      },
+      "id": "dea84a42-47ac-4cd1-ad68-5501413de95e",
+      "name": "Update Existing Lead1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [16, 256],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "ae9dfSmjGbjJbUr5",
+          "name": "Podio Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0855c827-4fce-483e-97bf-b1a6b4e8307e",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-208, 256],
+      "id": "2e703e8f-a5de-4a4c-b4f0-ba7740d75304",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.podio.com/search/app/20363651/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{{ $('Webhook').item.json.body.call.to_number.replace(/^\\+1/, '') }}\",\n  \"limit\": 1\n}",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "id": "82603424-a767-4fcc-b6d9-35b9a4bb1124",
+      "name": "Search Podio for Lead1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [-432, 256],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "ae9dfSmjGbjJbUr5",
+          "name": "Podio Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0AA1GPRN4E",
+          "mode": "list",
+          "cachedResultName": "new-lead"
+        },
+        "text": "=🔥 Inbound Lead Alert!\n\nName: {{ $('Webhook').item.json.body.call.retell_llm_dynamic_variables.seller_name }}\nPhone: {{ $('Parse Call Data1').item.json.caller_number }}\nAddress: {{ $('Parse Call Data1').item.json.property_address }}\nDate: {{ $now.toFormat('MMMM dd, yyyy') }}\nTime: {{ $now.toFormat('hh:mm a') }}\nPodio Link: {{ $('Search Podio for Lead1').item.json.link }}\nCheck Podio for details!",
+        "otherOptions": {}
+      },
+      "id": "5cc6e703-e8ca-4ed5-9225-5e2545083069",
+      "name": "Slack Alert (Hot)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [256, 256],
+      "webhookId": "f741f839-f334-41ae-b627-6604d529c44b",
+      "credentials": {
+        "slackApi": {
+          "id": "UyrcIL0RGrq9xjx7",
+          "name": "Slack account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If Call Analyzed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Call Analyzed": {
+      "main": [
+        [
+          {
+            "node": "Parse Call Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Call Data1": {
+      "main": [
+        [
+          {
+            "node": "Search Podio for Lead1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update Existing Lead1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Search Podio for Lead1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Existing Lead1": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert (Hot)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "America/Denver",
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate"
+  },
+  "versionId": "b3d42ae7-23e2-4147-9f92-c39bdf4aa628",
+  "id": "7wGIOFkntD_Xi29HBgNQc",
+  "tags": []
+}

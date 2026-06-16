@@ -1,0 +1,505 @@
+{
+  "name": "outbound call (UPDATED LEAD)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outbound-call-updated-lead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-480, 336],
+      "id": "47b7677f-3c93-44f1-ab6c-e1a88b56d27c",
+      "name": "Webhook1",
+      "webhookId": "987faede-426e-4a57-8d50-f9d623700c35"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.podio.com/item/{{ $('Webhook1').item.json.body.item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{}]
+        },
+        "options": {}
+      },
+      "id": "f10dbfff-636c-4d86-8fc3-3ba2e7a68169",
+      "name": "Get Podio Item (HTTPS)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [192, 336],
+      "retryOnFail": true,
+      "credentials": {
+        "oAuth2Api": {
+          "id": "ae9dfSmjGbjJbUr5",
+          "name": "Podio Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{\n( \n  $json[\"fields\"].find(f => f.external_id === 'lead-source')?.values?.[0]?.value?.id === 16 || \n  $json[\"fields\"].find(f => f.external_id === 'lead-source')?.values?.[0]?.value?.id === 28 \n) \n&&\n$json[\"fields\"].find(f => f.external_id === 'automationtrigger')?.values?.[0]?.value?.text === \"Trigger Call\"\n}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "c2711fbb-24f3-4104-bb3f-fef25810c937",
+      "name": "Filter: Source AND Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [416, 336]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.podio.com/item/{{ $('Webhook1').item.json.body.item_id }}?silent=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"fields\": {\n    \"automationtrigger\": 2\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [864, 336],
+      "id": "16d80ecb-f947-4e79-91c4-097587a4826f",
+      "name": "Update Podio: Break Loop",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "credentials": {
+        "oAuth2Api": {
+          "id": "ae9dfSmjGbjJbUr5",
+          "name": "Podio Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e06856c8-ab3c-42f8-8052-7a495c21a07c",
+              "leftValue": "={{ Object.keys($json).length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1088, 336],
+      "id": "fa9e9688-3ec4-447c-8fb6-f7dad1582ca1",
+      "name": "checks if previous node's output is empty or not",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1312, 336],
+      "id": "19733e36-358a-45eb-9347-ecdb9b53b704",
+      "name": "Wait1",
+      "webhookId": "887a228a-008e-4fee-942b-4bb5d7e6afdd"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.podio.com/item/{{ $('Get Podio Item (HTTPS)').item.json.fields.find(f => f.external_id === 'seller-contact').values[0].value.item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{}]
+        },
+        "options": {}
+      },
+      "id": "04d91c52-8ad7-4c7e-9e0e-143c7862dd72",
+      "name": "Get Linked Contact (HTTPS)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1536, 336],
+      "retryOnFail": true,
+      "credentials": {
+        "oAuth2Api": {
+          "id": "ae9dfSmjGbjJbUr5",
+          "name": "Podio Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "328c4f8b-0f9a-4b04-bcfe-3502c3bd96e7",
+              "leftValue": "={{ $json.fields.find(f => f.external_id === 'strippedphoneh').values[0].value }}\n",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d8306988-1c0f-4405-95a4-93a44220431f",
+              "leftValue": "={{ $('Get Podio Item (HTTPS)').item.json.fields.find(f => f.external_id === 'property-address')?.values[0]?.value }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1760, 336],
+      "id": "39e21f4d-8f0d-47ca-bb80-551c11e3b5c8",
+      "name": "If Data Exists"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://phone.smrt.studio/sms/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"<YOUR_SMRTPHONE_NUMBER>\",\n  \"to\": \"+1{{ $('Get Linked Contact (HTTPS)').item.json.fields.find(f => f.external_id === 'strippedphoneh').values[0].value }}\",\n  \"message\": \"Thank you for contacting us regarding your property, we will be in touch with you real soon!\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1984, 336],
+      "id": "b0368a7b-827b-4f29-98fe-59a7ea57b7cc",
+      "name": "SMS",
+      "retryOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RsAIo95B4zaBOawv",
+          "name": "Smrtphone Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.retellai.com/v2/create-phone-call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from_number\": \"<YOUR_RETELL_NUMBER>\",\n  \"to_number\": \"+1{{ $('Get Linked Contact (HTTPS)').item.json.fields.find(f => f.external_id === 'strippedphoneh').values[0].value }}\",\n  \"agent_id\": \"<YOUR_AGENT_ID>\",\n  \"retell_llm_dynamic_variables\": {\n  \"seller_name\": \"{{ $('Get Linked Contact (HTTPS)').item.json.fields.find(f => f.external_id === 'title')?.values[0]?.value || 'Valued Seller' }}\",\n  \"property_address\": \"{{ $('Get Podio Item (HTTPS)').item.json.fields.find(f => f.external_id === 'property-address')?.values[0]?.value }}\",\n  \"podio_item_id\": \"{{ $('Webhook1').item.json.body.item_id }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [2416, 336],
+      "id": "770ea434-1424-467c-b7fa-a05af7d93dcd",
+      "name": "Outbound Call",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "rUvHsTRMuG2bSE5N",
+          "name": "Retell API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "01f0fd0b-d78e-410f-802a-2ed8a392f53a",
+              "leftValue": "={{$json[\"fields\"].find(f => f.external_id === 'automationtrigger')?.values?.[0]?.value?.id}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [640, 336],
+      "id": "9722ad95-6040-4182-a80d-aacdcc5a1f54",
+      "name": "If",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.podio.com/item/3269755778",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{}]
+        },
+        "options": {}
+      },
+      "id": "2bb39559-fcea-4343-87cb-1dcac212679c",
+      "name": "Get Podio Item (HTTPS)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-480, 112],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "ae9dfSmjGbjJbUr5",
+          "name": "Podio Creds"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2192, 336],
+      "id": "09d27859-f069-46df-aab5-925171498d9f",
+      "name": "Wait",
+      "webhookId": "805a1ba7-bb22-49aa-bd45-d1628caabde4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate a random delay between 2000ms (2s) and 8000ms (8s)\nconst min = 2000;\nconst max = 8000;\nconst delay = Math.floor(Math.random() * (max - min + 1) + min);\nawait new Promise(resolve => setTimeout(resolve, delay));\nreturn items;"
+      },
+      "id": "18205e5a-2034-4502-9412-639d0d844aaa",
+      "name": "Random Millisecond Wait",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-32, 336],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.podio.com/item/{{ $json.body.item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{}]
+        },
+        "options": {}
+      },
+      "id": "623f2f4e-5ed4-4656-a8b3-a57291e10e6d",
+      "name": "Get Item for Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-256, 336],
+      "retryOnFail": true,
+      "credentials": {
+        "oAuth2Api": {
+          "id": "ae9dfSmjGbjJbUr5",
+          "name": "Podio Creds"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Get Item for Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Podio Item (HTTPS)": {
+      "main": [
+        [
+          {
+            "node": "Filter: Source AND Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Source AND Status": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Podio: Break Loop": {
+      "main": [
+        [
+          {
+            "node": "checks if previous node's output is empty or not",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "checks if previous node's output is empty or not": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Get Linked Contact (HTTPS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Linked Contact (HTTPS)": {
+      "main": [
+        [
+          {
+            "node": "If Data Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Data Exists": {
+      "main": [
+        [
+          {
+            "node": "SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update Podio: Break Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Outbound Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random Millisecond Wait": {
+      "main": [
+        [
+          {
+            "node": "Get Podio Item (HTTPS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Item for Check": {
+      "main": [
+        [
+          {
+            "node": "Random Millisecond Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "dcd337c0-6f2f-487b-a1ac-b82f3365f417",
+  "id": "Gm_xN_yXaVji0Xx2loiX_",
+  "tags": []
+}
